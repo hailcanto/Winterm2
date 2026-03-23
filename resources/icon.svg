@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5"/>
+      <stop offset="50%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <linearGradient id="termBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#0f0a2a"/>
+    </linearGradient>
+    <linearGradient id="cursorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="chevron" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="bigGlow">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Vibrant gradient background -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#bgGrad)"/>
+
+  <!-- Subtle shine overlay -->
+  <ellipse cx="200" cy="140" rx="200" ry="160" fill="white" opacity="0.08"/>
+
+  <!-- Terminal window with shadow -->
+  <g filter="url(#shadow)">
+    <rect x="72" y="108" width="368" height="260" rx="16" ry="16" fill="url(#termBg)"/>
+  </g>
+  <rect x="72" y="108" width="368" height="260" rx="16" ry="16" fill="none" stroke="white" stroke-width="1" opacity="0.15"/>
+
+  <!-- Title bar -->
+  <rect x="72" y="108" width="368" height="34" rx="16" ry="16" fill="white" opacity="0.06"/>
+  <rect x="72" y="126" width="368" height="16" fill="white" opacity="0.06"/>
+
+  <!-- Tab indicators -->
+  <rect x="88" y="116" width="56" height="18" rx="5" fill="white" opacity="0.25"/>
+  <rect x="152" y="116" width="56" height="18" rx="5" fill="white" opacity="0.08"/>
+
+  <!-- Window controls -->
+  <line x1="388" y1="125" x2="398" y2="125" stroke="white" stroke-width="2" opacity="0.4" stroke-linecap="round"/>
+  <rect x="406" y="120" width="10" height="10" rx="2" fill="none" stroke="white" stroke-width="1.5" opacity="0.4"/>
+  <line x1="424" y1="120" x2="434" y2="130" stroke="white" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <line x1="434" y1="120" x2="424" y2="130" stroke="white" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+
+  <!-- Split divider -->
+  <line x1="268" y1="154" x2="268" y2="356" stroke="#a855f7" stroke-width="2" opacity="0.5"/>
+
+  <!-- Left pane content -->
+  <!-- Prompt -->
+  <text x="92" y="182" font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="bold" fill="url(#chevron)" filter="url(#glow)">❯</text>
+  <text x="112" y="182" font-family="Consolas, 'Courier New', monospace" font-size="15" fill="white" opacity="0.85">npm start</text>
+
+  <!-- Output -->
+  <text x="92" y="210" font-family="Consolas, 'Courier New', monospace" font-size="13" fill="#34d399" opacity="0.7">✓ compiled</text>
+
+  <!-- Second prompt -->
+  <text x="92" y="240" font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="bold" fill="url(#chevron)" filter="url(#glow)">❯</text>
+
+  <!-- Cursor block with glow -->
+  <rect x="112" y="226" width="11" height="19" rx="2" fill="url(#cursorGrad)" filter="url(#glow)"/>
+
+  <!-- Faded lines -->
+  <rect x="92" y="262" width="100" height="3" rx="1.5" fill="white" opacity="0.06"/>
+  <rect x="92" y="278" width="80" height="3" rx="1.5" fill="white" opacity="0.04"/>
+
+  <!-- Right pane content -->
+  <text x="286" y="182" font-family="Consolas, 'Courier New', monospace" font-size="14" fill="#c4b5fd" opacity="0.8">git log</text>
+  <text x="286" y="208" font-family="Consolas, 'Courier New', monospace" font-size="12" fill="#fbbf24" opacity="0.6">feat:</text>
+  <text x="322" y="208" font-family="Consolas, 'Courier New', monospace" font-size="12" fill="white" opacity="0.5">add tabs</text>
+  <text x="286" y="230" font-family="Consolas, 'Courier New', monospace" font-size="12" fill="#fbbf24" opacity="0.6">fix:</text>
+  <text x="316" y="230" font-family="Consolas, 'Courier New', monospace" font-size="12" fill="white" opacity="0.5">split view</text>
+
+  <text x="286" y="260" font-family="Consolas, 'Courier New', monospace" font-size="16" font-weight="bold" fill="url(#chevron)">❯</text>
+  <rect x="304" y="246" width="9" height="17" rx="2" fill="url(#cursorGrad)" opacity="0.5"/>
+
+  <!-- Bottom: App name with strong glow -->
+  <text x="256" y="430" font-family="'Segoe UI', Arial, sans-serif" font-size="52" font-weight="800" fill="white" text-anchor="middle" letter-spacing="3" filter="url(#bigGlow)">WinTerm2</text>
+</svg>

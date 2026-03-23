@@ -1,0 +1,3 @@
+.terminal-pane { width: 100%; height: 100%; position: relative; overflow: hidden; }
+.terminal-pane .xterm { height: 100%; padding: 4px; }
+.terminal-pane.active { box-shadow: inset 0 0 0 1px var(--accent); }

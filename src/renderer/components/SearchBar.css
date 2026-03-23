@@ -1,0 +1,8 @@
+.search-bar { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 4px; background: var(--settings-bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.search-bar input { background: var(--input-bg); border: 1px solid var(--input-border); color: var(--input-text); border-radius: 4px; padding: 4px 8px; font-size: 13px; width: 200px; outline: none; }
+.search-bar input:focus { border-color: var(--accent); }
+.search-bar-btn { width: 26px; height: 26px; border: none; background: transparent; color: var(--settings-text); cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.search-bar-btn:hover { background: rgba(255,255,255,0.1); }
+.search-bar-btn.active { background: var(--accent); color: white; }
+.search-bar-close { opacity: 0.7; }
+.search-bar-close:hover { opacity: 1; }

@@ -1,0 +1,86 @@
+:root {
+  --title-bar: #282c34;
+  --title-bar-text: #abb2bf;
+  --tab-bar: #21252b;
+  --tab-active: #282c34;
+  --tab-active-text: #abb2bf;
+  --tab-inactive: transparent;
+  --tab-inactive-text: #636d83;
+  --tab-hover: rgba(255, 255, 255, 0.05);
+  --border: #181a1f;
+  --scrollbar: #4b5263;
+  --scrollbar-hover: #636d83;
+  --accent: #528bff;
+  --settings-bg: #282c34;
+  --settings-text: #abb2bf;
+  --input-bg: #1e2127;
+  --input-border: #3e4452;
+  --input-text: #abb2bf;
+  --button-bg: #528bff;
+  --button-text: #ffffff;
+  --button-hover: #4078f2;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--title-bar);
+  color: var(--settings-text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.terminal-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.tab-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tab-content.hidden {
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tab-content.visible {
+  visibility: visible;
+  z-index: 1;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+}

@@ -1,0 +1,6 @@
+.title-bar { display: flex; align-items: center; justify-content: space-between; height: 32px; background: var(--title-bar); color: var(--title-bar-text); -webkit-app-region: drag; padding: 0 8px; font-size: 13px; user-select: none; }
+.title-bar-title { font-weight: 600; }
+.title-bar-controls { display: flex; -webkit-app-region: no-drag; }
+.title-bar-btn { width: 46px; height: 32px; border: none; background: transparent; color: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.title-bar-btn:hover { background: rgba(255,255,255,0.1); }
+.title-bar-btn.close:hover { background: #e81123; color: white; }
