@@ -1,5 +1,6 @@
 import React, { useCallback, useRef } from 'react'
 import { useTabStore, type PaneNode } from '../store/tabStore'
+import { useSettingsStore } from '../store/settingsStore'
 import TerminalPane from './TerminalPane'
 import './SplitView.css'
 
@@ -12,6 +13,8 @@ interface SplitViewProps {
 const SplitView: React.FC<SplitViewProps> = ({ node, tabId, isTabActive = false }) => {
   const { updatePaneRatio } = useTabStore()
   const activePaneId = useTabStore((s) => s.tabs.find((t) => t.id === tabId)?.activePaneId ?? '')
+  const dividerColor = useSettingsStore((s) => s.dividerColor)
+  const dividerWidth = useSettingsStore((s) => s.dividerWidth)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseDown = useCallback(
@@ -60,7 +63,9 @@ const SplitView: React.FC<SplitViewProps> = ({ node, tabId, isTabActive = false 
       className={`split-view ${node.direction}`}
       style={{
         '--first-size': firstSize,
-        '--second-size': secondSize
+        '--second-size': secondSize,
+        '--divider-color': dividerColor,
+        '--divider-width': `${dividerWidth}px`
       } as React.CSSProperties}
     >
       <SplitView node={node.children[0]} tabId={tabId} isTabActive={isTabActive} />

@@ -107,6 +107,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ visible, onClose }
                 onChange={e => settings.updateSettings({ opacity: Number(e.target.value) })}
               />
             </div>
+            <div className="settings-row">
+              <span className="settings-label">分屏线颜色</span>
+              <div className="divider-color-group">
+                {['#ff8c00', '#00bfff', '#00e676', '#ff4081', '#ab47bc', '#ffeb3b', '#78909c', '#ffffff'].map(c => (
+                  <button
+                    key={c}
+                    className={`divider-color-swatch${settings.dividerColor === c ? ' active' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => settings.updateSettings({ dividerColor: c })}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={settings.dividerColor}
+                  onChange={e => settings.updateSettings({ dividerColor: e.target.value })}
+                  className="divider-color-picker"
+                />
+              </div>
+            </div>
+            <div className="settings-row">
+              <span className="settings-label">分屏线粗细</span>
+              <div className="divider-width-group">
+                <input
+                  className="settings-range"
+                  type="range"
+                  min={1}
+                  max={8}
+                  step={1}
+                  value={settings.dividerWidth}
+                  onChange={e => settings.updateSettings({ dividerWidth: Number(e.target.value) })}
+                />
+                <span className="divider-width-value">{settings.dividerWidth}px</span>
+              </div>
+            </div>
           </div>
 
           <div className="settings-section">

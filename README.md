@@ -1,33 +1,43 @@
-# WinTerm2 使用指南
+<p align="center">
+  <img src="resources/icon.png" alt="WinTerm2" width="128" height="128">
+</p>
 
-> Windows 上的高级终端模拟器，灵感来自 macOS iTerm2
+<h1 align="center">WinTerm2</h1>
+
+<p align="center">
+  Windows 上的高级终端模拟器，灵感来自 macOS iTerm2
+</p>
+
+<p align="center">
+  <a href="https://github.com/hailcanto/Winterm2/releases">下载最新版本</a>
+</p>
 
 ---
 
-## 安装与启动
+## 简介
 
-### 开发模式
+WinTerm2 是一款专为 Windows 打造的现代终端模拟器，借鉴了 macOS 上广受好评的 iTerm2 的设计理念。它提供多标签页、分屏、主题切换、搜索等功能，配合 WebGL 加速渲染和 ConPTY 支持，带来流畅且美观的终端体验。
 
-```bash
-cd E:/软件开发项目/终端/winterm2
+### 亮点
 
-# 安装依赖
-npm install
+- 多标签页 + 多层嵌套分屏
+- 6 套精心调配的内置主题
+- WebGL GPU 加速渲染
+- 完整的 256 色 + TrueColor 支持
+- Unicode 11 / CJK / Emoji 正确显示
+- iTerm2 图片协议支持
+- 窗口透明度调节
+- 自动检测 PowerShell 7 / Windows PowerShell
 
-# 如果 node-pty 报原生模块错误，执行重编译
-npx electron-rebuild -f -w node-pty
+---
 
-# 启动开发模式
-npm run dev
-```
+## 下载安装
 
-### 打包发布
+前往 [GitHub Releases](https://github.com/hailcanto/Winterm2/releases) 下载最新版本的安装包（`.exe`，NSIS 格式）。
 
-```bash
-npm run dist
-```
+> 系统要求：Windows 10 1903 及以上版本
 
-打包完成后在 `dist/` 目录下生成 Windows 安装包（NSIS 格式）。
+下载后双击运行安装程序，按提示完成安装即可。
 
 ---
 
@@ -71,9 +81,7 @@ npm run dist
 | `Ctrl+Shift+E` | 垂直分屏（上下分割） |
 | `Ctrl+Shift+X` | 关闭当前面板 |
 
-分屏后可以拖拽面板之间的分割线来调整大小比例。点击某个面板即可将其设为活跃面板（活跃面板有蓝色边框高亮）。
-
-分屏示例：
+分屏后可以拖拽分割线调整大小比例。点击面板即可将其设为活跃面板（蓝色边框高亮）。
 
 ```
 ┌──────────┬──────────┐     ┌──────────────────┐
@@ -178,7 +186,7 @@ WinTerm2 内置 6 套精心调配的主题，在设置面板中切换：
 
 ---
 
-## Shell 自动检测
+## Shell 配置
 
 WinTerm2 启动终端时会按以下优先级自动选择 Shell：
 
@@ -194,19 +202,16 @@ WinTerm2 启动终端时会按以下优先级自动选择 Shell：
 
 ## 技术特性
 
-- **WebGL 加速渲染**：默认使用 GPU 加速终端渲染，不支持时自动降级为 Canvas
-- **ConPTY 支持**：使用 Windows 10 1903+ 的 ConPTY API，完整支持 ANSI 转义序列
-- **256 色 + TrueColor**：环境变量自动设置 `TERM=xterm-256color` 和 `COLORTERM=truecolor`
-- **Unicode 支持**：加载 Unicode11 插件，正确显示中文、Emoji 等宽字符
-- **图片协议**：支持终端内图片显示（iTerm2 图片协议）
-- **Tab 保活**：切换标签页时终端进程不会中断，使用 CSS 隐藏实现
+- **WebGL 加速渲染** — 默认使用 GPU 加速终端渲染，不支持时自动降级为 Canvas
+- **ConPTY 支持** — 使用 Windows 10 1903+ 的 ConPTY API，完整支持 ANSI 转义序列
+- **256 色 + TrueColor** — 环境变量自动设置 `TERM=xterm-256color` 和 `COLORTERM=truecolor`
+- **Unicode 支持** — 正确显示中文、日文、韩文、Emoji 等宽字符
+- **图片协议** — 支持终端内图片显示（iTerm2 图片协议）
+- **Tab 保活** — 切换标签页时终端进程不会中断
 
 ---
 
 ## 常见问题
-
-**Q: 启动后终端空白或报错？**
-执行 `npx electron-rebuild -f -w node-pty` 重编译原生模块。
 
 **Q: 中文显示异常？**
 确保字体设置中包含支持中文的字体（如 Cascadia Code 不支持中文时会自动 fallback 到系统字体）。
@@ -215,4 +220,11 @@ WinTerm2 启动终端时会按以下优先级自动选择 Shell：
 在设置面板的"默认 Shell"中填入 `wsl.exe`，新建标签页即可进入 WSL 环境。
 
 **Q: 设置保存在哪里？**
-设置通过浏览器 localStorage 持久化，存储在 Electron 应用数据目录中。
+设置通过 localStorage 持久化，存储在应用数据目录中。
+
+---
+
+## 许可证
+
+MIT License
+

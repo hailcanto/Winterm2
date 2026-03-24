@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const addTab = useTabStore((s) => s.addTab)
   const applyThemeToCSS = useThemeStore((s) => s.applyThemeToCSS)
   const opacity = useSettingsStore((s) => s.opacity)
+  const dividerColor = useSettingsStore((s) => s.dividerColor)
 
   useEffect(() => {
     applyThemeToCSS()
@@ -29,6 +30,11 @@ const App: React.FC = () => {
   useEffect(() => {
     window.windowAPI.setOpacity(opacity)
   }, [opacity])
+
+  // Apply divider color
+  useEffect(() => {
+    document.documentElement.style.setProperty('--divider-color', dividerColor)
+  }, [dividerColor])
 
   useEffect(() => {
     if (tabs.length === 0) {

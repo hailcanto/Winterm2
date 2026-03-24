@@ -11,6 +11,8 @@ interface Settings {
   scrollback: number
   startupCwd: string
   themeName: string
+  dividerColor: string
+  dividerWidth: number
 }
 
 interface SettingsState extends Settings {
@@ -29,7 +31,9 @@ const defaultSettings: Settings = {
   defaultShell: '',
   scrollback: 5000,
   startupCwd: '',
-  themeName: 'one-dark'
+  themeName: 'one-dark',
+  dividerColor: '#ff8c00',
+  dividerWidth: 4
 }
 
 const STORAGE_KEY = 'winterm2-settings'
@@ -67,7 +71,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         defaultShell: state.defaultShell,
         scrollback: state.scrollback,
         startupCwd: state.startupCwd,
-        themeName: state.themeName
+        themeName: state.themeName,
+        dividerColor: state.dividerColor,
+        dividerWidth: state.dividerWidth
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
     } catch {

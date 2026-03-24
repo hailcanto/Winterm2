@@ -17,3 +17,10 @@
 .keybinding-list { list-style: none; padding: 0; margin: 0; }
 .keybinding-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
 .keybinding-key { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px; font-size: 11px; }
+.divider-color-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; max-width: 180px; justify-content: flex-end; }
+.divider-color-swatch { width: 22px; height: 22px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; padding: 0; transition: border-color 0.15s; }
+.divider-color-swatch:hover { border-color: rgba(255,255,255,0.5); }
+.divider-color-swatch.active { border-color: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.3); }
+.divider-color-picker { width: 22px; height: 22px; border: none; border-radius: 4px; cursor: pointer; background: transparent; padding: 0; }
+.divider-width-group { display: flex; align-items: center; gap: 8px; }
+.divider-width-value { font-size: 12px; min-width: 30px; text-align: right; opacity: 0.8; }
