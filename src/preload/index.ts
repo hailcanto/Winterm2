@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('terminalAPI', {
-  createPty(id: string, cols: number, rows: number, cwd?: string): Promise<void> {
-    return ipcRenderer.invoke('pty:create', { id, cols, rows, cwd })
+  createPty(id: string, cols: number, rows: number, cwd?: string, shell?: string): Promise<void> {
+    return ipcRenderer.invoke('pty:create', { id, cols, rows, cwd, shell })
   },
 
   writePty(id: string, data: string): void {

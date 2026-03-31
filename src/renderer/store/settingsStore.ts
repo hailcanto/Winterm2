@@ -17,8 +17,8 @@ interface Settings {
 
 interface SettingsState extends Settings {
   updateSettings: (partial: Partial<Settings>) => void
-  loadSettings: () => Promise<void>
-  saveSettings: () => Promise<void>
+  loadSettings: () => void
+  saveSettings: () => void
 }
 
 const defaultSettings: Settings = {
@@ -38,27 +38,33 @@ const defaultSettings: Settings = {
 
 const STORAGE_KEY = 'winterm2-settings'
 
+function loadSavedSettings(): Settings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<Settings>
+      return { ...defaultSettings, ...saved }
+    }
+  } catch {
+    // ignore parse errors, use defaults
+  }
+  return defaultSettings
+}
+
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  ...defaultSettings,
+  ...loadSavedSettings(),
 
   updateSettings: (partial: Partial<Settings>) => {
     set(partial)
     get().saveSettings()
   },
 
-  loadSettings: async () => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw) as Partial<Settings>
-        set({ ...defaultSettings, ...saved })
-      }
-    } catch {
-      // ignore parse errors, use defaults
-    }
+  loadSettings: () => {
+    const saved = loadSavedSettings()
+    set(saved)
   },
 
-  saveSettings: async () => {
+  saveSettings: () => {
     try {
       const state = get()
       const settings: Settings = {

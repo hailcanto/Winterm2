@@ -27,16 +27,18 @@ function detectShell(): string {
 }
 
 export function setupPtyHandlers(mainWindow: BrowserWindow): void {
-  const shell = detectShell()
+  const defaultShell = detectShell()
 
-  ipcMain.handle('pty:create', (_event, { id, cols, rows, cwd }: { id: string; cols: number; rows: number; cwd?: string }) => {
+  ipcMain.handle('pty:create', (_event, { id, cols, rows, cwd, shell: customShell }: { id: string; cols: number; rows: number; cwd?: string; shell?: string }) => {
     if (ptys.has(id)) return
 
-    const shellArgs = shell.toLowerCase().includes('pwsh') || shell.toLowerCase().includes('powershell')
+    const resolvedShell = customShell || defaultShell
+
+    const shellArgs = resolvedShell.toLowerCase().includes('pwsh') || resolvedShell.toLowerCase().includes('powershell')
       ? ['-NoLogo', '-NoProfile']
       : []
 
-    const pty = spawn(shell, shellArgs, {
+    const pty = spawn(resolvedShell, shellArgs, {
       name: 'xterm-256color',
       cols,
       rows,

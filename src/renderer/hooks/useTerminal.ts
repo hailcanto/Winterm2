@@ -6,6 +6,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { ImageAddon } from '@xterm/addon-image'
 import { useEffect, useRef, useCallback } from 'react'
 import { keybindingManager } from '../keybindings/manager'
+import { useSettingsStore } from '../store/settingsStore'
 
 interface TerminalInstance {
   terminal: Terminal
@@ -93,8 +94,9 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
     // First time opening
     term.open(container)
 
-    // Create PTY
-    window.terminalAPI.createPty(paneId, term.cols, term.rows)
+    // Create PTY with shell and cwd from settings
+    const { defaultShell, startupCwd } = useSettingsStore.getState()
+    window.terminalAPI.createPty(paneId, term.cols, term.rows, startupCwd || undefined, defaultShell || undefined)
 
     // PTY data -> terminal
     instance.unsubData = window.terminalAPI.onPtyData(paneId, (data) => {
@@ -293,3 +295,8 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
 
 // Export for cleanup when tabs/panes are removed
 export { destroyInstance as destroyTerminalInstance }
+
+// Export for accessing search addon from outside components
+export function getSearchAddon(paneId: string): SearchAddon | null {
+  return terminalInstances.get(paneId)?.searchAddon ?? null
+}

@@ -9,6 +9,7 @@ import { useTabStore } from './store/tabStore'
 import { useThemeStore } from './store/themeStore'
 import { useSettingsStore } from './store/settingsStore'
 import { keybindingManager } from './keybindings/manager'
+import { getSearchAddon } from './hooks/useTerminal'
 
 const App: React.FC = () => {
   const [searchVisible, setSearchVisible] = useState(false)
@@ -22,8 +23,12 @@ const App: React.FC = () => {
   const dividerColor = useSettingsStore((s) => s.dividerColor)
 
   useEffect(() => {
-    applyThemeToCSS()
-    useSettingsStore.getState().loadSettings()
+    const { themeName } = useSettingsStore.getState()
+    if (themeName) {
+      useThemeStore.getState().setTheme(themeName)
+    } else {
+      applyThemeToCSS()
+    }
   }, [])
 
   // Apply window-level opacity
@@ -152,7 +157,10 @@ const App: React.FC = () => {
       </div>
       {searchVisible && (
         <SearchBar
-          searchAddon={null}
+          searchAddon={(() => {
+            const tab = useTabStore.getState().getActiveTab()
+            return tab ? getSearchAddon(tab.activePaneId) : null
+          })()}
           visible={searchVisible}
           onClose={() => setSearchVisible(false)}
         />

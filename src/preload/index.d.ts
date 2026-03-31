@@ -1,5 +1,5 @@
 interface TerminalAPI {
-  createPty(id: string, cols: number, rows: number, cwd?: string): Promise<void>
+  createPty(id: string, cols: number, rows: number, cwd?: string, shell?: string): Promise<void>
   writePty(id: string, data: string): void
   resizePty(id: string, cols: number, rows: number): void
   destroyPty(id: string): void
