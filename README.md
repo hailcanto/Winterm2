@@ -77,8 +77,8 @@ WinTerm2 是一款专为 Windows 打造的现代终端模拟器，借鉴了 macO
 
 | 快捷键 | 功能 |
 |--------|------|
-| `Ctrl+Shift+D` | 水平分屏（左右分割） |
-| `Ctrl+Shift+E` | 垂直分屏（上下分割） |
+| `Alt+Shift+=` | 水平分屏（左右分割） |
+| `Alt+Shift+-` | 垂直分屏（上下分割） |
 | `Ctrl+Shift+X` | 关闭当前面板 |
 
 分屏后可以拖拽分割线调整大小比例。点击面板即可将其设为活跃面板（蓝色边框高亮）。
@@ -227,6 +227,13 @@ WinTerm2 启动终端时会按以下优先级自动选择 Shell：
 ---
 
 ## 更新日志
+
+### v1.0.2
+
+- 修复终端背景高频闪烁问题：优化 TerminalPane 组件的 store 订阅方式，避免无关状态变化触发 WebGL 重绘
+- 修复垂直分屏快捷键失效问题：分屏快捷键改为 Windows Terminal 风格，避免与 Windows 系统/输入法快捷键冲突
+  - 水平分屏：`Ctrl+Shift+D` → `Alt+Shift+=`
+  - 垂直分屏：`Ctrl+Shift+E` → `Alt+Shift+-`
 
 ### v1.0.1
 

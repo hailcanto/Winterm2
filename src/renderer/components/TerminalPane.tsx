@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import { useTerminal } from '../hooks/useTerminal'
 import { useSettingsStore } from '../store/settingsStore'
@@ -13,10 +13,20 @@ interface TerminalPaneProps {
 }
 
 const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible }) => {
-  const { fontSize, fontFamily, lineHeight, cursorStyle, cursorBlink, scrollback } =
-    useSettingsStore()
+  const fontSize = useSettingsStore((s) => s.fontSize)
+  const fontFamily = useSettingsStore((s) => s.fontFamily)
+  const lineHeight = useSettingsStore((s) => s.lineHeight)
+  const cursorStyle = useSettingsStore((s) => s.cursorStyle)
+  const cursorBlink = useSettingsStore((s) => s.cursorBlink)
+  const scrollback = useSettingsStore((s) => s.scrollback)
   const xtermTheme = useThemeStore((s) => s.currentTheme.terminal)
-  const { activeTabId, setActivePaneId } = useTabStore()
+  const activeTabId = useTabStore((s) => s.activeTabId)
+  const setActivePaneId = useTabStore((s) => s.setActivePaneId)
+
+  const stableTheme = useMemo(
+    () => xtermTheme as Record<string, string>,
+    [JSON.stringify(xtermTheme)]
+  )
 
   const { terminalRef, focus } = useTerminal({
     paneId,
@@ -26,7 +36,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
     cursorStyle,
     cursorBlink,
     scrollback,
-    theme: xtermTheme as Record<string, string>,
+    theme: stableTheme,
     isActive: isVisible
   })
 
