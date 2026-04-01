@@ -12,3 +12,6 @@ export type KeybindingAction =
   | 'search' | 'copy' | 'paste'
   | 'zoomIn' | 'zoomOut' | 'zoomReset'
   | 'openSettings'
+  | 'focusLeft' | 'focusRight' | 'focusUp' | 'focusDown'
+  | 'toggleFullscreen'
+  | 'newFloatingPane' | 'toggleFloatingPane'

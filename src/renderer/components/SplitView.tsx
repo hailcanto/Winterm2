@@ -13,6 +13,9 @@ interface SplitViewProps {
 const SplitView: React.FC<SplitViewProps> = ({ node, tabId, isTabActive = false }) => {
   const { updatePaneRatio } = useTabStore()
   const activePaneId = useTabStore((s) => s.tabs.find((t) => t.id === tabId)?.activePaneId ?? '')
+  const fullscreenPaneId = useTabStore(
+    (s) => s.tabs.find((t) => t.id === tabId)?.fullscreenPaneId ?? null
+  )
   const dividerColor = useSettingsStore((s) => s.dividerColor)
   const dividerWidth = useSettingsStore((s) => s.dividerWidth)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -51,7 +54,16 @@ const SplitView: React.FC<SplitViewProps> = ({ node, tabId, isTabActive = false 
   )
 
   if (node.type === 'terminal') {
-    return <TerminalPane paneId={node.id} isActive={isTabActive && node.id === activePaneId} isVisible={isTabActive} />
+    const isFullscreenActive = fullscreenPaneId != null
+    const isThisFullscreen = fullscreenPaneId === node.id
+    return (
+      <TerminalPane
+        paneId={node.id}
+        isActive={isTabActive && node.id === activePaneId}
+        isVisible={isTabActive && (!isFullscreenActive || isThisFullscreen)}
+        isFullscreen={isThisFullscreen}
+      />
+    )
   }
 
   const firstSize = `${node.ratio}fr`

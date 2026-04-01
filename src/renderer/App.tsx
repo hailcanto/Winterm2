@@ -3,9 +3,11 @@ import './App.css'
 import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
 import SplitView from './components/SplitView'
+import FloatingPanel from './components/FloatingPanel'
 import { SearchBar } from './components/SearchBar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useTabStore } from './store/tabStore'
+import StatusBar from './components/StatusBar'
 import { useThemeStore } from './store/themeStore'
 import { useSettingsStore } from './store/settingsStore'
 import { keybindingManager } from './keybindings/manager'
@@ -92,6 +94,35 @@ const App: React.FC = () => {
       if (tab) closePane(tab.id, tab.activePaneId)
     })
 
+    keybindingManager.register('focusLeft', () => {
+      useTabStore.getState().navigatePane('left')
+    })
+    keybindingManager.register('focusRight', () => {
+      useTabStore.getState().navigatePane('right')
+    })
+    keybindingManager.register('focusUp', () => {
+      useTabStore.getState().navigatePane('up')
+    })
+    keybindingManager.register('focusDown', () => {
+      useTabStore.getState().navigatePane('down')
+    })
+
+    keybindingManager.register('toggleFullscreen', () => {
+      const { getActiveTab, togglePaneFullscreen } = useTabStore.getState()
+      const tab = getActiveTab()
+      if (tab) togglePaneFullscreen(tab.id, tab.activePaneId)
+    })
+
+    keybindingManager.register('newFloatingPane', () => {
+      const tab = useTabStore.getState().getActiveTab()
+      if (tab) useTabStore.getState().addFloatingPane(tab.id)
+    })
+
+    keybindingManager.register('toggleFloatingPane', () => {
+      const tab = useTabStore.getState().getActiveTab()
+      if (tab) useTabStore.getState().toggleFloatingPanesVisible(tab.id)
+    })
+
     keybindingManager.register('search', () => setSearchVisible((v) => !v))
 
     keybindingManager.register('copy', () => {
@@ -133,7 +164,9 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handler)
       ;['newTab', 'closeTab', 'nextTab', 'prevTab', 'splitHorizontal', 'splitVertical',
-        'closePane', 'search', 'copy', 'paste', 'zoomIn', 'zoomOut', 'zoomReset', 'openSettings'
+        'closePane', 'focusLeft', 'focusRight', 'focusUp', 'focusDown', 'toggleFullscreen',
+        'newFloatingPane', 'toggleFloatingPane',
+        'search', 'copy', 'paste', 'zoomIn', 'zoomOut', 'zoomReset', 'openSettings'
       ].forEach((a) => keybindingManager.unregister(a))
     }
   }, [])
@@ -151,10 +184,14 @@ const App: React.FC = () => {
               className={`tab-content ${isActive ? 'visible' : 'hidden'}`}
             >
               <SplitView node={tab.rootPane} tabId={tab.id} isTabActive={isActive} />
+              {tab.floatingPanes?.map((fp) => (
+                <FloatingPanel key={fp.id} pane={fp} tabId={tab.id} isTabActive={isActive} />
+              ))}
             </div>
           )
         })}
       </div>
+      <StatusBar />
       {searchVisible && (
         <SearchBar
           searchAddon={(() => {

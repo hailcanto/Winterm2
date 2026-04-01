@@ -20,11 +20,25 @@ export interface SplitPane {
 
 export type PaneNode = TerminalPane | SplitPane
 
+export interface FloatingPaneState {
+  id: string
+  title: string
+  x: number
+  y: number
+  width: number
+  height: number
+  visible: boolean
+  zIndex: number
+}
+
 export interface Tab {
   id: string
   title: string
   rootPane: PaneNode
   activePaneId: string
+  fullscreenPaneId: string | null
+  floatingPanes: FloatingPaneState[]
+  floatingCounter: number
 }
 
 interface TabState {
@@ -33,6 +47,7 @@ interface TabState {
   addTab: () => void
   removeTab: (tabId: string) => void
   setActiveTab: (tabId: string) => void
+  renameTab: (tabId: string, title: string) => void
   splitPane: (tabId: string, paneId: string, direction: 'horizontal' | 'vertical') => void
   closePane: (tabId: string, paneId: string) => void
   updatePaneRatio: (tabId: string, splitId: string, ratio: number) => void
@@ -40,6 +55,13 @@ interface TabState {
   updatePaneTitle: (paneId: string, title: string) => void
   getActiveTab: () => Tab | undefined
   getActivePane: () => TerminalPane | undefined
+  togglePaneFullscreen: (tabId: string, paneId: string) => void
+  navigatePane: (direction: 'left' | 'right' | 'up' | 'down') => void
+  addFloatingPane: (tabId: string) => void
+  removeFloatingPane: (tabId: string, paneId: string) => void
+  updateFloatingPane: (tabId: string, paneId: string, updates: Partial<FloatingPaneState>) => void
+  toggleFloatingPanesVisible: (tabId: string) => void
+  bringFloatingToFront: (tabId: string, paneId: string) => void
 }
 
 // --- Helpers ---
@@ -54,7 +76,10 @@ function createTab(): Tab {
     id: nanoid(),
     title: pane.title,
     rootPane: pane,
-    activePaneId: pane.id
+    activePaneId: pane.id,
+    fullscreenPaneId: null,
+    floatingPanes: [],
+    floatingCounter: 100
   }
 }
 
@@ -143,6 +168,88 @@ function collectTerminalIds(node: PaneNode): string[] {
   return [...collectTerminalIds(node.children[0]), ...collectTerminalIds(node.children[1])]
 }
 
+// --- Navigation helpers ---
+
+interface Rect { x: number; y: number; w: number; h: number }
+
+function buildPaneRects(node: PaneNode, rect: Rect): Map<string, Rect> {
+  const map = new Map<string, Rect>()
+  if (node.type === 'terminal') {
+    map.set(node.id, rect)
+    return map
+  }
+  const { direction, ratio, children } = node
+  let r1: Rect, r2: Rect
+  if (direction === 'horizontal') {
+    r1 = { x: rect.x, y: rect.y, w: rect.w * ratio, h: rect.h }
+    r2 = { x: rect.x + rect.w * ratio, y: rect.y, w: rect.w * (1 - ratio), h: rect.h }
+  } else {
+    r1 = { x: rect.x, y: rect.y, w: rect.w, h: rect.h * ratio }
+    r2 = { x: rect.x, y: rect.y + rect.h * ratio, w: rect.w, h: rect.h * (1 - ratio) }
+  }
+  for (const [id, r] of buildPaneRects(children[0], r1)) map.set(id, r)
+  for (const [id, r] of buildPaneRects(children[1], r2)) map.set(id, r)
+  return map
+}
+
+function findNeighborPane(rects: Map<string, Rect>, currentId: string, direction: 'left' | 'right' | 'up' | 'down'): string | null {
+  const current = rects.get(currentId)
+  if (!current) return null
+  const eps = 0.001
+  let best: string | null = null
+  let bestDist = Infinity
+
+  for (const [id, r] of rects) {
+    if (id === currentId) continue
+    let valid = false
+    let dist = 0
+
+    if (direction === 'right') {
+      if (r.x >= current.x + current.w - eps) {
+        const overlapMin = Math.max(current.y, r.y)
+        const overlapMax = Math.min(current.y + current.h, r.y + r.h)
+        if (overlapMax > overlapMin + eps) {
+          valid = true
+          dist = r.x - (current.x + current.w)
+        }
+      }
+    } else if (direction === 'left') {
+      if (r.x + r.w <= current.x + eps) {
+        const overlapMin = Math.max(current.y, r.y)
+        const overlapMax = Math.min(current.y + current.h, r.y + r.h)
+        if (overlapMax > overlapMin + eps) {
+          valid = true
+          dist = current.x - (r.x + r.w)
+        }
+      }
+    } else if (direction === 'down') {
+      if (r.y >= current.y + current.h - eps) {
+        const overlapMin = Math.max(current.x, r.x)
+        const overlapMax = Math.min(current.x + current.w, r.x + r.w)
+        if (overlapMax > overlapMin + eps) {
+          valid = true
+          dist = r.y - (current.y + current.h)
+        }
+      }
+    } else if (direction === 'up') {
+      if (r.y + r.h <= current.y + eps) {
+        const overlapMin = Math.max(current.x, r.x)
+        const overlapMax = Math.min(current.x + current.w, r.x + r.w)
+        if (overlapMax > overlapMin + eps) {
+          valid = true
+          dist = current.y - (r.y + r.h)
+        }
+      }
+    }
+
+    if (valid && dist < bestDist) {
+      bestDist = dist
+      best = id
+    }
+  }
+  return best
+}
+
 // --- Store ---
 
 export const useTabStore = create<TabState>((set, get) => ({
@@ -164,6 +271,9 @@ export const useTabStore = create<TabState>((set, get) => ({
       // Destroy all terminal instances in this tab
       const ids = collectTerminalIds(tab.rootPane)
       ids.forEach((id) => destroyTerminalInstance(id))
+      if (tab.floatingPanes) {
+        tab.floatingPanes.forEach((fp) => destroyTerminalInstance(fp.id))
+      }
     }
     set((state) => {
       const newTabs = state.tabs.filter((t) => t.id !== tabId)
@@ -179,6 +289,14 @@ export const useTabStore = create<TabState>((set, get) => ({
 
   setActiveTab: (tabId: string) => {
     set({ activeTabId: tabId })
+  },
+
+  renameTab: (tabId: string, title: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === tabId ? { ...t, title: title || t.title } : t
+      )
+    }))
   },
 
   splitPane: (tabId: string, paneId: string, direction: 'horizontal' | 'vertical') => {
@@ -199,7 +317,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       const newRoot = replacePane(tab.rootPane, paneId, split)
       return {
         tabs: state.tabs.map((t) =>
-          t.id === tabId ? { ...t, rootPane: newRoot, activePaneId: newPane.id } : t
+          t.id === tabId ? { ...t, rootPane: newRoot, activePaneId: newPane.id, fullscreenPaneId: null } : t
         )
       }
     })
@@ -236,7 +354,7 @@ export const useTabStore = create<TabState>((set, get) => ({
 
       return {
         tabs: state.tabs.map((t) =>
-          t.id === tabId ? { ...t, rootPane: newRoot, activePaneId: newActivePaneId } : t
+          t.id === tabId ? { ...t, rootPane: newRoot, activePaneId: newActivePaneId, fullscreenPaneId: t.fullscreenPaneId === paneId ? null : t.fullscreenPaneId } : t
         )
       }
     })
@@ -276,5 +394,111 @@ export const useTabStore = create<TabState>((set, get) => ({
     const tab = get().getActiveTab()
     if (!tab) return undefined
     return findTerminalPane(tab.rootPane, tab.activePaneId) ?? undefined
-  }
+  },
+
+  togglePaneFullscreen: (tabId: string, paneId: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        return { ...t, fullscreenPaneId: t.fullscreenPaneId === paneId ? null : paneId }
+      })
+    }))
+  },
+
+  navigatePane: (direction: 'left' | 'right' | 'up' | 'down') => {
+    const tab = get().getActiveTab()
+    if (!tab) return
+    const rects = buildPaneRects(tab.rootPane, { x: 0, y: 0, w: 1, h: 1 })
+    const target = findNeighborPane(rects, tab.activePaneId, direction)
+    if (target) {
+      set((state) => ({
+        tabs: state.tabs.map((t) =>
+          t.id === tab.id ? { ...t, activePaneId: target } : t
+        )
+      }))
+    }
+  },
+
+  addFloatingPane: (tabId: string) => {
+    const newId = nanoid()
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        const offset = t.floatingPanes.length * 30
+        const newPane: FloatingPaneState = {
+          id: newId,
+          title: '浮动终端',
+          x: 100 + offset,
+          y: 80 + offset,
+          width: 500,
+          height: 350,
+          visible: true,
+          zIndex: t.floatingCounter + 1
+        }
+        return {
+          ...t,
+          floatingPanes: [...t.floatingPanes, newPane],
+          floatingCounter: t.floatingCounter + 1,
+          activePaneId: newId
+        }
+      })
+    }))
+  },
+
+  removeFloatingPane: (tabId: string, paneId: string) => {
+    destroyTerminalInstance(paneId)
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        const newFloating = t.floatingPanes.filter((fp) => fp.id !== paneId)
+        const newActivePaneId = t.activePaneId === paneId
+          ? (getFirstTerminal(t.rootPane)?.id ?? '')
+          : t.activePaneId
+        return { ...t, floatingPanes: newFloating, activePaneId: newActivePaneId }
+      })
+    }))
+  },
+
+  updateFloatingPane: (tabId: string, paneId: string, updates: Partial<FloatingPaneState>) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        return {
+          ...t,
+          floatingPanes: t.floatingPanes.map((fp) =>
+            fp.id === paneId ? { ...fp, ...updates } : fp
+          )
+        }
+      })
+    }))
+  },
+
+  toggleFloatingPanesVisible: (tabId: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        const anyVisible = t.floatingPanes.some((fp) => fp.visible)
+        return {
+          ...t,
+          floatingPanes: t.floatingPanes.map((fp) => ({ ...fp, visible: !anyVisible }))
+        }
+      })
+    }))
+  },
+
+  bringFloatingToFront: (tabId: string, paneId: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== tabId) return t
+        const newCounter = t.floatingCounter + 1
+        return {
+          ...t,
+          floatingCounter: newCounter,
+          floatingPanes: t.floatingPanes.map((fp) =>
+            fp.id === paneId ? { ...fp, zIndex: newCounter } : fp
+          )
+        }
+      })
+    }))
+  },
 }))

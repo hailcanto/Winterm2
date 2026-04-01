@@ -13,6 +13,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchAddon, visible, onCl
   const [regex, setRegex] = useState(false)
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [wholeWord, setWholeWord] = useState(false)
+  const [matchIndex, setMatchIndex] = useState<number | null>(null)
+  const [matchCount, setMatchCount] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -21,6 +23,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchAddon, visible, onCl
       inputRef.current.select()
     }
   }, [visible])
+
+  useEffect(() => {
+    if (!searchAddon) return
+    const disposable = searchAddon.onDidChangeResults(({ resultIndex, resultCount }) => {
+      setMatchIndex(resultIndex)
+      setMatchCount(resultCount)
+    })
+    return () => disposable.dispose()
+  }, [searchAddon])
+
+  useEffect(() => {
+    setMatchIndex(null)
+    setMatchCount(null)
+  }, [query])
 
   if (!visible) return null
 
@@ -62,6 +78,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchAddon, visible, onCl
         onKeyDown={handleKeyDown}
         placeholder="搜索..."
       />
+      {query && (
+        <span className={`search-count ${matchCount === 0 ? 'no-match' : ''}`}>
+          {matchCount === null ? '' : matchCount === 0 ? '无匹配' : `${matchIndex === -1 ? '?' : matchIndex + 1}/${matchCount}`}
+        </span>
+      )}
       <button
         className={`search-bar-btn ${regex ? 'active' : ''}`}
         onClick={() => setRegex(!regex)}

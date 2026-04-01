@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import { useTerminal } from '../hooks/useTerminal'
 import { useSettingsStore } from '../store/settingsStore'
@@ -10,9 +10,10 @@ interface TerminalPaneProps {
   paneId: string
   isActive: boolean
   isVisible: boolean
+  isFullscreen?: boolean
 }
 
-const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible }) => {
+const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible, isFullscreen = false }) => {
   const fontSize = useSettingsStore((s) => s.fontSize)
   const fontFamily = useSettingsStore((s) => s.fontFamily)
   const lineHeight = useSettingsStore((s) => s.lineHeight)
@@ -45,9 +46,15 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
     focus()
   }
 
+  useEffect(() => {
+    if (isActive) {
+      focus()
+    }
+  }, [isActive, focus])
+
   return (
     <div
-      className={`terminal-pane ${isActive ? 'active' : ''}`}
+      className={`terminal-pane ${isActive ? 'active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
       ref={terminalRef}
       onClick={handleClick}
     />
