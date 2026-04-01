@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
-import { destroyTerminalInstance } from '../hooks/useTerminal'
+import { destroyTerminalInstance, setRestoredCwd } from '../hooks/useTerminal'
 
 // --- Types ---
 
@@ -39,6 +39,7 @@ export interface Tab {
   fullscreenPaneId: string | null
   floatingPanes: FloatingPaneState[]
   floatingCounter: number
+  syncInput: boolean
 }
 
 interface TabState {
@@ -62,6 +63,10 @@ interface TabState {
   updateFloatingPane: (tabId: string, paneId: string, updates: Partial<FloatingPaneState>) => void
   toggleFloatingPanesVisible: (tabId: string) => void
   bringFloatingToFront: (tabId: string, paneId: string) => void
+  toggleSyncInput: (tabId: string) => void
+  applyLayout: (tabId: string, rootPane: PaneNode) => void
+  saveSession: () => Promise<void>
+  restoreSession: () => void
 }
 
 // --- Helpers ---
@@ -79,7 +84,8 @@ function createTab(): Tab {
     activePaneId: pane.id,
     fullscreenPaneId: null,
     floatingPanes: [],
-    floatingCounter: 100
+    floatingCounter: 100,
+    syncInput: false
   }
 }
 
@@ -166,6 +172,45 @@ function updateRatioInTree(node: PaneNode, splitId: string, ratio: number): Pane
 function collectTerminalIds(node: PaneNode): string[] {
   if (node.type === 'terminal') return [node.id]
   return [...collectTerminalIds(node.children[0]), ...collectTerminalIds(node.children[1])]
+}
+
+// --- Session serialization ---
+
+interface SerializedTerminal { type: 'terminal'; title: string; cwd: string }
+interface SerializedSplit { type: 'split'; direction: 'horizontal' | 'vertical'; ratio: number; children: [SerializedNode, SerializedNode] }
+type SerializedNode = SerializedTerminal | SerializedSplit
+
+function serializePaneTree(node: PaneNode, cwdMap: Record<string, string>): SerializedNode {
+  if (node.type === 'terminal') {
+    return { type: 'terminal', title: node.title, cwd: cwdMap[node.id] || '' }
+  }
+  return {
+    type: 'split',
+    direction: node.direction,
+    ratio: node.ratio,
+    children: [
+      serializePaneTree(node.children[0], cwdMap),
+      serializePaneTree(node.children[1], cwdMap)
+    ]
+  }
+}
+
+function deserializePaneTree(node: SerializedNode): PaneNode {
+  if (node.type === 'terminal') {
+    const pane = createTerminalPane(node.title)
+    ;(pane as any)._cwd = node.cwd || ''
+    return pane
+  }
+  return {
+    type: 'split',
+    id: nanoid(),
+    direction: node.direction,
+    ratio: node.ratio,
+    children: [
+      deserializePaneTree(node.children[0]),
+      deserializePaneTree(node.children[1])
+    ]
+  }
 }
 
 // --- Navigation helpers ---
@@ -500,5 +545,139 @@ export const useTabStore = create<TabState>((set, get) => ({
         }
       })
     }))
+  },
+
+  toggleSyncInput: (tabId: string) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === tabId ? { ...t, syncInput: !t.syncInput } : t
+      )
+    }))
+  },
+
+  applyLayout: (tabId: string, rootPane: PaneNode) => {
+    // Destroy all existing terminal instances in the tab
+    const state = get()
+    const tab = state.tabs.find((t) => t.id === tabId)
+    if (!tab) return
+    const oldIds = collectTerminalIds(tab.rootPane)
+    oldIds.forEach((id) => destroyTerminalInstance(id))
+    // Also destroy floating panes
+    tab.floatingPanes.forEach((fp) => destroyTerminalInstance(fp.id))
+
+    const firstTerminal = getFirstTerminal(rootPane)
+    set((s) => ({
+      tabs: s.tabs.map((t) =>
+        t.id === tabId ? {
+          ...t,
+          rootPane,
+          activePaneId: firstTerminal?.id ?? '',
+          fullscreenPaneId: null,
+          floatingPanes: [],
+          floatingCounter: 100
+        } : t
+      )
+    }))
+  },
+
+  saveSession: async () => {
+    try {
+      const { tabs, activeTabId } = get()
+      const cwdMap: Record<string, string> = {}
+      for (const tab of tabs) {
+        const ids = collectTerminalIds(tab.rootPane)
+        tab.floatingPanes.forEach((fp) => ids.push(fp.id))
+        for (const id of ids) {
+          try {
+            const cwd = await window.terminalAPI.getCwd(id)
+            if (cwd) cwdMap[id] = cwd
+          } catch {
+            // ignore
+          }
+        }
+      }
+      const session = {
+        tabs: tabs.map((t) => ({
+          title: t.title,
+          rootPane: serializePaneTree(t.rootPane, cwdMap),
+          activePaneId: t.activePaneId,
+          syncInput: t.syncInput,
+          floatingPanes: t.floatingPanes.map((fp) => ({
+            title: fp.title,
+            x: fp.x, y: fp.y,
+            width: fp.width, height: fp.height,
+            cwd: cwdMap[fp.id] || ''
+          }))
+        })),
+        activeTabIndex: tabs.findIndex((t) => t.id === activeTabId)
+      }
+      localStorage.setItem('winterm2-session', JSON.stringify(session))
+    } catch {
+      // ignore save errors
+    }
+  },
+
+  restoreSession: () => {
+    try {
+      const raw = localStorage.getItem('winterm2-session')
+      if (!raw) return
+      localStorage.removeItem('winterm2-session')
+      const session = JSON.parse(raw)
+      if (!session.tabs || session.tabs.length === 0) return
+
+      const newTabs: Tab[] = session.tabs.map((saved: any) => {
+        const rootPane = deserializePaneTree(saved.rootPane)
+        const firstTerminal = getFirstTerminal(rootPane)
+        const floatingPanes: FloatingPaneState[] = (saved.floatingPanes || []).map((fp: any) => ({
+          id: nanoid(),
+          title: fp.title || '浮动终端',
+          x: fp.x || 100,
+          y: fp.y || 80,
+          width: fp.width || 500,
+          height: fp.height || 350,
+          visible: true,
+          zIndex: 101,
+          _cwd: fp.cwd || ''
+        }))
+        return {
+          id: nanoid(),
+          title: saved.title || '终端',
+          rootPane,
+          activePaneId: firstTerminal?.id ?? '',
+          fullscreenPaneId: null,
+          floatingPanes,
+          floatingCounter: 100 + floatingPanes.length,
+          syncInput: saved.syncInput || false
+        }
+      })
+
+      // Set restored cwds for PTY creation
+      for (const tab of newTabs) {
+        const setCwds = (node: PaneNode) => {
+          if (node.type === 'terminal') {
+            const cwd = (node as any)._cwd
+            if (cwd) {
+              setRestoredCwd(node.id, cwd)
+              delete (node as any)._cwd
+            }
+            return
+          }
+          setCwds(node.children[0])
+          setCwds(node.children[1])
+        }
+        setCwds(tab.rootPane)
+        tab.floatingPanes.forEach((fp: any) => {
+          if (fp._cwd) {
+            setRestoredCwd(fp.id, fp._cwd)
+            delete fp._cwd
+          }
+        })
+      }
+
+      const activeIdx = Math.max(0, Math.min(session.activeTabIndex || 0, newTabs.length - 1))
+      set({ tabs: newTabs, activeTabId: newTabs[activeIdx]?.id ?? '' })
+    } catch {
+      // ignore restore errors
+    }
   },
 }))

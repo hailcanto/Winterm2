@@ -5,6 +5,7 @@ interface TerminalAPI {
   destroyPty(id: string): void
   onPtyData(id: string, callback: (data: string) => void): () => void
   onPtyExit(id: string, callback: (exitCode: number) => void): () => void
+  getCwd(id: string): Promise<string>
 }
 
 interface WindowAPI {
@@ -16,10 +17,16 @@ interface WindowAPI {
   setOpacity(opacity: number): void
 }
 
+interface ShellAPI {
+  openPath(filePath: string): Promise<void>
+  openExternal(url: string): Promise<void>
+}
+
 declare global {
   interface Window {
     terminalAPI: TerminalAPI
     windowAPI: WindowAPI
+    shellAPI: ShellAPI
   }
 }
 

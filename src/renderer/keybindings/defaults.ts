@@ -15,6 +15,8 @@ export const defaultKeybindings: Keybinding[] = [
   { id: 'toggleFullscreen', label: '面板全屏', keys: 'alt+shift+f', action: 'toggleFullscreen', category: 'panes' },
   { id: 'newFloatingPane', label: '新建浮动面板', keys: 'alt+shift+n', action: 'newFloatingPane', category: 'panes' },
   { id: 'toggleFloatingPane', label: '显隐浮动面板', keys: 'alt+f', action: 'toggleFloatingPane', category: 'panes' },
+  { id: 'toggleSyncInput', label: '同步输入', keys: 'alt+shift+s', action: 'toggleSyncInput', category: 'panes' },
+  { id: 'commandPalette', label: '命令面板', keys: 'ctrl+shift+p', action: 'commandPalette', category: 'app' },
   { id: 'search', label: '搜索', keys: 'ctrl+shift+f', action: 'search', category: 'terminal' },
   { id: 'copy', label: '复制', keys: 'ctrl+shift+c', action: 'copy', category: 'terminal' },
   { id: 'paste', label: '粘贴', keys: 'ctrl+shift+v', action: 'paste', category: 'terminal' },

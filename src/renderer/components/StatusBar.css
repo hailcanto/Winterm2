@@ -42,3 +42,8 @@
   margin-right: 4px;
   vertical-align: middle;
 }
+
+.status-sync {
+  color: #e06c75;
+  font-weight: 600;
+}

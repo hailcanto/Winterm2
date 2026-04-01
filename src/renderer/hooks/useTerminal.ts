@@ -23,6 +23,20 @@ interface TerminalInstance {
 // Global map to persist terminal instances across React re-renders
 const terminalInstances = new Map<string, TerminalInstance>()
 
+// Sync input broadcast callback
+let syncInputCallback: ((sourcePaneId: string, data: string) => void) | null = null
+
+export function setSyncInputCallback(cb: ((sourcePaneId: string, data: string) => void) | null) {
+  syncInputCallback = cb
+}
+
+// Restored session cwds for PTY creation
+const restoredCwds = new Map<string, string>()
+
+export function setRestoredCwd(paneId: string, cwd: string) {
+  if (cwd) restoredCwds.set(paneId, cwd)
+}
+
 function getOrCreateInstance(paneId: string, options: {
   fontSize: number
   fontFamily: string
@@ -96,7 +110,9 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
 
     // Create PTY with shell and cwd from settings
     const { defaultShell, startupCwd } = useSettingsStore.getState()
-    window.terminalAPI.createPty(paneId, term.cols, term.rows, startupCwd || undefined, defaultShell || undefined)
+    const restoredCwd = restoredCwds.get(paneId)
+    if (restoredCwd) restoredCwds.delete(paneId)
+    window.terminalAPI.createPty(paneId, term.cols, term.rows, restoredCwd || startupCwd || undefined, defaultShell || undefined)
 
     // PTY data -> terminal
     instance.unsubData = window.terminalAPI.onPtyData(paneId, (data) => {
@@ -108,9 +124,12 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
       term.write('\r\n[进程已退出]')
     })
 
-    // Terminal input -> PTY
+    // Terminal input -> PTY (with sync input support)
     instance.onDataDisposable = term.onData((data) => {
       window.terminalAPI.writePty(paneId, data)
+      if (syncInputCallback) {
+        syncInputCallback(paneId, data)
+      }
     })
 
     // Copy handler
@@ -121,6 +140,57 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
       }
     }
     window.addEventListener('winterm2:copy', instance.copyHandler)
+
+    // File path link provider
+    const filePathRegex = /(?:[a-zA-Z]:\\|\.{0,2}\/)[^\s:*?"<>|]+(?::\d+)?/
+    const urlRegex = /https?:\/\/[^\s]+/
+
+    term.registerLinkProvider({
+      provideLinks(bufferLineNumber: number, callback: (links: Array<{ range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: () => void }> | undefined) => void) {
+        const line = term.buffer.active.getLine(bufferLineNumber - 1)
+        if (!line) { callback(undefined); return }
+        const text = line.translateToString()
+        const links: Array<{ range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: () => void }> = []
+
+        // Match file paths
+        let match: RegExpExecArray | null
+        const fpRegex = new RegExp(filePathRegex.source, 'g')
+        while ((match = fpRegex.exec(text)) !== null) {
+          const startX = match.index + 1
+          const endX = match.index + match[0].length
+          links.push({
+            range: {
+              start: { x: startX, y: bufferLineNumber },
+              end: { x: endX, y: bufferLineNumber }
+            },
+            text: match[0],
+            activate: () => {
+              const pathPart = match![0].split(':')[0] + (match![0].includes(':\\') ? '\\' + match![0].split('\\').slice(1).join('\\').split(':')[0] : '')
+              window.shellAPI.openPath(pathPart.replace(/:\d+$/, ''))
+            }
+          })
+        }
+
+        // Match URLs
+        const urlRegexG = new RegExp(urlRegex.source, 'g')
+        while ((match = urlRegexG.exec(text)) !== null) {
+          const startX = match.index + 1
+          const endX = match.index + match[0].length
+          links.push({
+            range: {
+              start: { x: startX, y: bufferLineNumber },
+              end: { x: endX, y: bufferLineNumber }
+            },
+            text: match[0],
+            activate: () => {
+              window.shellAPI.openExternal(match![0])
+            }
+          })
+        }
+
+        callback(links.length > 0 ? links : undefined)
+      }
+    })
   } else {
     // Re-attaching to a new container — move the terminal element
     const termElement = instance.container.querySelector('.xterm')

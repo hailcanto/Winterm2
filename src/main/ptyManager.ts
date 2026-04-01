@@ -3,6 +3,7 @@ import { spawn, IPty } from 'node-pty'
 import { existsSync } from 'fs'
 
 const ptys = new Map<string, IPty>()
+const ptyCwds = new Map<string, string>()
 
 function detectShell(): string {
   const pwsh7Paths = [
@@ -53,6 +54,7 @@ export function setupPtyHandlers(mainWindow: BrowserWindow): void {
     })
 
     ptys.set(id, pty)
+    ptyCwds.set(id, cwd || process.env.USERPROFILE || process.cwd())
 
     pty.onData((data) => {
       if (!mainWindow.isDestroyed()) {
@@ -62,6 +64,7 @@ export function setupPtyHandlers(mainWindow: BrowserWindow): void {
 
     pty.onExit(({ exitCode }) => {
       ptys.delete(id)
+      ptyCwds.delete(id)
       if (!mainWindow.isDestroyed()) {
         mainWindow.webContents.send(`pty:exit:${id}`, exitCode)
       }
@@ -81,7 +84,12 @@ export function setupPtyHandlers(mainWindow: BrowserWindow): void {
     if (pty) {
       pty.kill()
       ptys.delete(id)
+      ptyCwds.delete(id)
     }
+  })
+
+  ipcMain.handle('pty:getCwd', (_event, { id }: { id: string }) => {
+    return ptyCwds.get(id) || ''
   })
 }
 
@@ -90,4 +98,5 @@ export function destroyAllPtys(): void {
     pty.kill()
     ptys.delete(id)
   }
+  ptyCwds.clear()
 }

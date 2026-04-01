@@ -50,6 +50,22 @@ function createWindow(): void {
     mainWindow?.setOpacity(Math.max(0.3, Math.min(1, opacity)))
   })
 
+  ipcMain.handle('shell:openPath', async (_event, filePath: string) => {
+    try {
+      await shell.openPath(filePath)
+    } catch {
+      // ignore
+    }
+  })
+
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    try {
+      await shell.openExternal(url)
+    } catch {
+      // ignore
+    }
+  })
+
   // 最大化状态变化通知
   mainWindow.on('maximize', () => {
     mainWindow?.webContents.send('window:maximized-changed', true)

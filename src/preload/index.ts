@@ -37,6 +37,10 @@ contextBridge.exposeInMainWorld('terminalAPI', {
     return () => {
       ipcRenderer.removeListener(channel, listener)
     }
+  },
+
+  getCwd(id: string): Promise<string> {
+    return ipcRenderer.invoke('pty:getCwd', { id })
   }
 })
 
@@ -70,5 +74,14 @@ contextBridge.exposeInMainWorld('windowAPI', {
 
   setOpacity(opacity: number): void {
     ipcRenderer.send('window:setOpacity', opacity)
+  }
+})
+
+contextBridge.exposeInMainWorld('shellAPI', {
+  openPath(filePath: string): Promise<void> {
+    return ipcRenderer.invoke('shell:openPath', filePath)
+  },
+  openExternal(url: string): Promise<void> {
+    return ipcRenderer.invoke('shell:openExternal', url)
   }
 })

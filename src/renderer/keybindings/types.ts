@@ -15,3 +15,5 @@ export type KeybindingAction =
   | 'focusLeft' | 'focusRight' | 'focusUp' | 'focusDown'
   | 'toggleFullscreen'
   | 'newFloatingPane' | 'toggleFloatingPane'
+  | 'toggleSyncInput'
+  | 'commandPalette'

@@ -20,6 +20,10 @@ const StatusBar: React.FC = () => {
     if (!tab) return '终端'
     return findTerminalInTree(tab.rootPane, tab.activePaneId) || '终端'
   })
+  const syncInput = useTabStore((s) => {
+    const tab = s.tabs.find(t => t.id === s.activeTabId)
+    return tab?.syncInput ?? false
+  })
 
   const paneCount = activeTab ? countTerminals(activeTab.rootPane) : 0
 
@@ -29,6 +33,12 @@ const StatusBar: React.FC = () => {
         <span className="status-item">{paneTitle}</span>
         <span className="status-separator">|</span>
         <span className="status-item">面板: {paneCount}</span>
+        {syncInput && (
+          <>
+            <span className="status-separator">|</span>
+            <span className="status-item status-sync">同步输入</span>
+          </>
+        )}
       </div>
       <div className="status-bar-right">
         <span className="status-hint">Alt+Shift+= 水平分屏</span>

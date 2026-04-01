@@ -1,10 +1,11 @@
-import React, { useMemo, useEffect } from 'react'
+import React, { useMemo, useEffect, useState } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import { useTerminal } from '../hooks/useTerminal'
 import { useSettingsStore } from '../store/settingsStore'
 import { useThemeStore } from '../store/themeStore'
 import { useTabStore } from '../store/tabStore'
 import './TerminalPane.css'
+import ContextMenu from './ContextMenu'
 
 interface TerminalPaneProps {
   paneId: string
@@ -41,9 +42,16 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
     isActive: isVisible
   })
 
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number} | null>(null)
+
   const handleClick = () => {
     setActivePaneId(activeTabId, paneId)
     focus()
+  }
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY })
   }
 
   useEffect(() => {
@@ -57,7 +65,26 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
       className={`terminal-pane ${isActive ? 'active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
       ref={terminalRef}
       onClick={handleClick}
-    />
+      onContextMenu={handleContextMenu}
+    >
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            { label: '复制', action: () => { navigator.clipboard.writeText(document.getSelection()?.toString() || '') } },
+            { label: '粘贴', action: () => { navigator.clipboard.readText().then(text => { if (text) window.terminalAPI.writePty(paneId, text) }) } },
+            { separator: true, label: '', action: () => {} },
+            { label: '水平分屏', action: () => { const { getActiveTab, splitPane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) splitPane(tab.id, paneId, 'horizontal') } },
+            { label: '垂直分屏', action: () => { const { getActiveTab, splitPane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) splitPane(tab.id, paneId, 'vertical') } },
+            { separator: true, label: '', action: () => {} },
+            { label: '搜索', action: () => { const e = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, shiftKey: true, bubbles: true }); window.dispatchEvent(e) } },
+            { label: '关闭面板', action: () => { const { getActiveTab, closePane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) closePane(tab.id, paneId) } },
+          ]}
+        />
+      )}
+    </div>
   )
 }
 

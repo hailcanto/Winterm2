@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import './App.css'
 import TitleBar from './components/TitleBar'
 import TabBar from './components/TabBar'
@@ -11,11 +11,26 @@ import StatusBar from './components/StatusBar'
 import { useThemeStore } from './store/themeStore'
 import { useSettingsStore } from './store/settingsStore'
 import { keybindingManager } from './keybindings/manager'
-import { getSearchAddon } from './hooks/useTerminal'
+import { getSearchAddon, setSyncInputCallback } from './hooks/useTerminal'
+import { CommandPalette } from './components/CommandPalette'
+import { layoutPresets } from './layouts'
+
+function collectAllTerminalIds(tab: any): string[] {
+  const ids: string[] = []
+  const collect = (node: any) => {
+    if (node.type === 'terminal') { ids.push(node.id); return }
+    collect(node.children[0])
+    collect(node.children[1])
+  }
+  collect(tab.rootPane)
+  tab.floatingPanes.forEach((fp: any) => ids.push(fp.id))
+  return ids
+}
 
 const App: React.FC = () => {
   const [searchVisible, setSearchVisible] = useState(false)
   const [settingsVisible, setSettingsVisible] = useState(false)
+  const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
 
   const tabs = useTabStore((s) => s.tabs)
   const activeTabId = useTabStore((s) => s.activeTabId)
@@ -32,6 +47,8 @@ const App: React.FC = () => {
     } else {
       applyThemeToCSS()
     }
+    // Restore session
+    useTabStore.getState().restoreSession()
   }, [])
 
   // Apply window-level opacity
@@ -124,6 +141,13 @@ const App: React.FC = () => {
       if (tab) useTabStore.getState().toggleFloatingPanesVisible(tab.id)
     })
 
+    keybindingManager.register('toggleSyncInput', () => {
+      const tab = useTabStore.getState().getActiveTab()
+      if (tab) useTabStore.getState().toggleSyncInput(tab.id)
+    })
+
+    keybindingManager.register('commandPalette', () => setCommandPaletteVisible((v) => !v))
+
     keybindingManager.register('search', () => setSearchVisible((v) => !v))
 
     keybindingManager.register('copy', () => {
@@ -166,10 +190,86 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handler)
       ;['newTab', 'closeTab', 'nextTab', 'prevTab', 'splitHorizontal', 'splitVertical',
         'closePane', 'focusLeft', 'focusRight', 'focusUp', 'focusDown', 'toggleFullscreen',
-        'newFloatingPane', 'toggleFloatingPane',
+        'newFloatingPane', 'toggleFloatingPane', 'toggleSyncInput', 'commandPalette',
         'search', 'copy', 'paste', 'zoomIn', 'zoomOut', 'zoomReset', 'openSettings'
       ].forEach((a) => keybindingManager.unregister(a))
     }
+  }, [])
+
+  // Setup sync input broadcast
+  useEffect(() => {
+    setSyncInputCallback((sourcePaneId: string, data: string) => {
+      const state = useTabStore.getState()
+      const tab = state.tabs.find((t) => {
+        const allIds = collectAllTerminalIds(t)
+        return allIds.includes(sourcePaneId)
+      })
+      if (!tab || !tab.syncInput) return
+      const allIds = collectAllTerminalIds(tab)
+      allIds.forEach((id) => {
+        if (id !== sourcePaneId) {
+          window.terminalAPI.writePty(id, data)
+        }
+      })
+    })
+    return () => setSyncInputCallback(null)
+  }, [])
+
+  // Save session on window close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        const { tabs, activeTabId } = useTabStore.getState()
+        const session = {
+          tabs: tabs.map((t) => ({
+            title: t.title,
+            rootPane: JSON.parse(JSON.stringify(t.rootPane)),
+            syncInput: t.syncInput,
+            floatingPanes: t.floatingPanes.map((fp) => ({
+              title: fp.title,
+              x: fp.x, y: fp.y,
+              width: fp.width, height: fp.height
+            }))
+          })),
+          activeTabIndex: tabs.findIndex((t) => t.id === activeTabId)
+        }
+        localStorage.setItem('winterm2-session', JSON.stringify(session))
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  const commands = useMemo(() => {
+    const kb = keybindingManager.getKeybindings()
+    const findKeys = (action: string) => kb.find(k => k.action === action)?.keys || ''
+    return [
+      { id: 'newTab', label: '新建标签页', keys: findKeys('newTab'), action: () => useTabStore.getState().addTab() },
+      { id: 'closeTab', label: '关闭标签页', keys: findKeys('closeTab'), action: () => { const { activeTabId, removeTab } = useTabStore.getState(); if (activeTabId) removeTab(activeTabId) } },
+      { id: 'splitHorizontal', label: '水平分屏', keys: findKeys('splitHorizontal'), action: () => { const { getActiveTab, splitPane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) splitPane(tab.id, tab.activePaneId, 'horizontal') } },
+      { id: 'splitVertical', label: '垂直分屏', keys: findKeys('splitVertical'), action: () => { const { getActiveTab, splitPane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) splitPane(tab.id, tab.activePaneId, 'vertical') } },
+      { id: 'closePane', label: '关闭面板', keys: findKeys('closePane'), action: () => { const { getActiveTab, closePane } = useTabStore.getState(); const tab = getActiveTab(); if (tab) closePane(tab.id, tab.activePaneId) } },
+      { id: 'toggleFullscreen', label: '面板全屏', keys: findKeys('toggleFullscreen'), action: () => { const { getActiveTab, togglePaneFullscreen } = useTabStore.getState(); const tab = getActiveTab(); if (tab) togglePaneFullscreen(tab.id, tab.activePaneId) } },
+      { id: 'newFloatingPane', label: '新建浮动面板', keys: findKeys('newFloatingPane'), action: () => { const tab = useTabStore.getState().getActiveTab(); if (tab) useTabStore.getState().addFloatingPane(tab.id) } },
+      { id: 'toggleFloatingPane', label: '显隐浮动面板', keys: findKeys('toggleFloatingPane'), action: () => { const tab = useTabStore.getState().getActiveTab(); if (tab) useTabStore.getState().toggleFloatingPanesVisible(tab.id) } },
+      { id: 'toggleSyncInput', label: '同步输入', keys: findKeys('toggleSyncInput'), action: () => { const tab = useTabStore.getState().getActiveTab(); if (tab) useTabStore.getState().toggleSyncInput(tab.id) } },
+      { id: 'search', label: '搜索', keys: findKeys('search'), action: () => setSearchVisible((v) => !v) },
+      { id: 'zoomIn', label: '放大字号', keys: findKeys('zoomIn'), action: () => { const s = useSettingsStore.getState(); s.updateSettings({ fontSize: Math.min(32, s.fontSize + 1) }) } },
+      { id: 'zoomOut', label: '缩小字号', keys: findKeys('zoomOut'), action: () => { const s = useSettingsStore.getState(); s.updateSettings({ fontSize: Math.max(8, s.fontSize - 1) }) } },
+      { id: 'zoomReset', label: '重置字号', keys: findKeys('zoomReset'), action: () => useSettingsStore.getState().updateSettings({ fontSize: 14 }) },
+      { id: 'openSettings', label: '打开设置', keys: findKeys('openSettings'), action: () => setSettingsVisible((v) => !v) },
+      ...layoutPresets.map((preset) => ({
+        id: `layout-${preset.id}`,
+        label: `布局: ${preset.label}`,
+        keys: '',
+        action: () => {
+          const tab = useTabStore.getState().getActiveTab()
+          if (tab) useTabStore.getState().applyLayout(tab.id, preset.build())
+        }
+      })),
+    ]
   }, [])
 
   return (
@@ -204,6 +304,13 @@ const App: React.FC = () => {
         <SettingsPanel
           visible={settingsVisible}
           onClose={() => setSettingsVisible(false)}
+        />
+      )}
+      {commandPaletteVisible && (
+        <CommandPalette
+          visible={commandPaletteVisible}
+          onClose={() => setCommandPaletteVisible(false)}
+          commands={commands}
         />
       )}
     </div>
