@@ -22,7 +22,9 @@ const TabBar: React.FC = () => {
 
   const commitEdit = () => {
     if (editingTabId) {
-      renameTab(editingTabId, editValue)
+      if (editValue.trim()) {
+        renameTab(editingTabId, editValue.trim())
+      }
       setEditingTabId(null)
     }
   }

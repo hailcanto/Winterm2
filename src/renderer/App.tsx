@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const applyThemeToCSS = useThemeStore((s) => s.applyThemeToCSS)
   const opacity = useSettingsStore((s) => s.opacity)
   const dividerColor = useSettingsStore((s) => s.dividerColor)
+  const activePaneId = useTabStore((s) => s.tabs.find(t => t.id === s.activeTabId)?.activePaneId ?? '')
 
   useEffect(() => {
     const { themeName } = useSettingsStore.getState()
@@ -184,7 +185,7 @@ const App: React.FC = () => {
               className={`tab-content ${isActive ? 'visible' : 'hidden'}`}
             >
               <SplitView node={tab.rootPane} tabId={tab.id} isTabActive={isActive} />
-              {tab.floatingPanes?.map((fp) => (
+              {tab.floatingPanes.map((fp) => (
                 <FloatingPanel key={fp.id} pane={fp} tabId={tab.id} isTabActive={isActive} />
               ))}
             </div>
@@ -194,10 +195,7 @@ const App: React.FC = () => {
       <StatusBar />
       {searchVisible && (
         <SearchBar
-          searchAddon={(() => {
-            const tab = useTabStore.getState().getActiveTab()
-            return tab ? getSearchAddon(tab.activePaneId) : null
-          })()}
+          searchAddon={activePaneId ? getSearchAddon(activePaneId) : null}
           visible={searchVisible}
           onClose={() => setSearchVisible(false)}
         />

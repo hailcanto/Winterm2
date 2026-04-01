@@ -80,7 +80,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ searchAddon, visible, onCl
       />
       {query && (
         <span className={`search-count ${matchCount === 0 ? 'no-match' : ''}`}>
-          {matchCount === null ? '' : matchCount === 0 ? '无匹配' : `${matchIndex === -1 ? '?' : matchIndex + 1}/${matchCount}`}
+          {matchCount === null ? '' : matchCount === 0 ? '无匹配' : `${matchIndex === -1 ? 0 : matchIndex + 1}/${matchCount}`}
         </span>
       )}
       <button

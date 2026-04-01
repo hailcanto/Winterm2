@@ -8,12 +8,20 @@ function countTerminals(node: PaneNode): number {
   return countTerminals(node.children[0]) + countTerminals(node.children[1])
 }
 
+function findTerminalInTree(node: PaneNode, paneId: string): string | undefined {
+  if (node.type === 'terminal') return node.id === paneId ? node.title : undefined
+  return findTerminalInTree(node.children[0], paneId) || findTerminalInTree(node.children[1], paneId)
+}
+
 const StatusBar: React.FC = () => {
   const activeTab = useTabStore((s) => s.tabs.find(t => t.id === s.activeTabId))
-  const activePane = useTabStore((s) => s.getActivePane())
+  const paneTitle = useTabStore((s) => {
+    const tab = s.tabs.find(t => t.id === s.activeTabId)
+    if (!tab) return '终端'
+    return findTerminalInTree(tab.rootPane, tab.activePaneId) || '终端'
+  })
 
   const paneCount = activeTab ? countTerminals(activeTab.rootPane) : 0
-  const paneTitle = activePane?.title || '终端'
 
   return (
     <div className="status-bar">
