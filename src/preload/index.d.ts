@@ -6,6 +6,8 @@ interface TerminalAPI {
   onPtyData(id: string, callback: (data: string) => void): () => void
   onPtyExit(id: string, callback: (exitCode: number) => void): () => void
   getCwd(id: string): Promise<string>
+  getShellType(id: string): Promise<string>
+  updateCwd(id: string, cwd: string): void
 }
 
 interface WindowAPI {
@@ -20,6 +22,7 @@ interface WindowAPI {
 interface ShellAPI {
   openPath(filePath: string): Promise<void>
   openExternal(url: string): Promise<void>
+  openTerminalPath(paneId: string, rawPath: string): Promise<void>
 }
 
 declare global {

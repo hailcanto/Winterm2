@@ -18,6 +18,9 @@ const StatusBar: React.FC = () => {
   const paneTitle = useTabStore((s) => {
     const tab = s.tabs.find(t => t.id === s.activeTabId)
     if (!tab) return '终端'
+    // Check floating panes first
+    const fp = tab.floatingPanes.find(f => f.id === tab.activePaneId)
+    if (fp) return fp.title || '浮动终端'
     return findTerminalInTree(tab.rootPane, tab.activePaneId) || '终端'
   })
   const syncInput = useTabStore((s) => {
@@ -25,7 +28,7 @@ const StatusBar: React.FC = () => {
     return tab?.syncInput ?? false
   })
 
-  const paneCount = activeTab ? countTerminals(activeTab.rootPane) : 0
+  const paneCount = activeTab ? countTerminals(activeTab.rootPane) + activeTab.floatingPanes.length : 0
 
   return (
     <div className="status-bar">

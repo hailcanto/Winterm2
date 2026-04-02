@@ -6,7 +6,7 @@ import SplitView from './components/SplitView'
 import FloatingPanel from './components/FloatingPanel'
 import { SearchBar } from './components/SearchBar'
 import { SettingsPanel } from './components/SettingsPanel'
-import { useTabStore } from './store/tabStore'
+import { useTabStore, getLastSessionJson, saveSessionSyncFallback } from './store/tabStore'
 import StatusBar from './components/StatusBar'
 import { useThemeStore } from './store/themeStore'
 import { useSettingsStore } from './store/settingsStore'
@@ -47,8 +47,11 @@ const App: React.FC = () => {
     } else {
       applyThemeToCSS()
     }
-    // Restore session
+    // Restore session, then ensure at least one tab exists
     useTabStore.getState().restoreSession()
+    if (useTabStore.getState().tabs.length === 0) {
+      useTabStore.getState().addTab()
+    }
   }, [])
 
   // Apply window-level opacity
@@ -62,7 +65,7 @@ const App: React.FC = () => {
   }, [dividerColor])
 
   useEffect(() => {
-    if (tabs.length === 0) {
+    if (useTabStore.getState().tabs.length === 0) {
       addTab()
     }
   }, [tabs.length, addTab])
@@ -215,31 +218,28 @@ const App: React.FC = () => {
     return () => setSyncInputCallback(null)
   }, [])
 
-  // Save session on window close
+  // Periodically save session (async saveSession handles cwd + activePaneId)
   useEffect(() => {
+    // Immediate first save to populate cache ASAP
+    useTabStore.getState().saveSession()
+    const interval = setInterval(() => {
+      useTabStore.getState().saveSession()
+    }, 5000)
     const handleBeforeUnload = () => {
-      try {
-        const { tabs, activeTabId } = useTabStore.getState()
-        const session = {
-          tabs: tabs.map((t) => ({
-            title: t.title,
-            rootPane: JSON.parse(JSON.stringify(t.rootPane)),
-            syncInput: t.syncInput,
-            floatingPanes: t.floatingPanes.map((fp) => ({
-              title: fp.title,
-              x: fp.x, y: fp.y,
-              width: fp.width, height: fp.height
-            }))
-          })),
-          activeTabIndex: tabs.findIndex((t) => t.id === activeTabId)
-        }
-        localStorage.setItem('winterm2-session', JSON.stringify(session))
-      } catch {
-        // ignore
+      // Use cached session json (sync) to avoid async race on window close
+      const cached = getLastSessionJson()
+      if (cached) {
+        localStorage.setItem('winterm2-session', cached)
+      } else {
+        // Fallback: sync save without cwd (at least preserves layout)
+        saveSessionSyncFallback()
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
   }, [])
 
   const commands = useMemo(() => {

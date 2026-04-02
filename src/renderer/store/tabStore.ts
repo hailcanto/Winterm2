@@ -176,6 +176,42 @@ function collectTerminalIds(node: PaneNode): string[] {
 
 // --- Session serialization ---
 
+// Cache the last successfully serialized session for sync save on beforeunload
+let lastSessionJson: string | null = null
+export function getLastSessionJson(): string | null { return lastSessionJson }
+
+// Sync fallback: serialize layout without cwd (for beforeunload when cache is empty)
+export function saveSessionSyncFallback(): void {
+  try {
+    const { tabs, activeTabId } = useTabStore.getState()
+    if (tabs.length === 0) return
+    const cwdMap: Record<string, string> = {}
+    const session = {
+      tabs: tabs.map((t) => {
+        const terminalIds = collectTerminalIds(t.rootPane)
+        const mainIndex = terminalIds.indexOf(t.activePaneId)
+        const floatingIndex = t.floatingPanes.findIndex(fp => fp.id === t.activePaneId)
+        return {
+          title: t.title,
+          rootPane: serializePaneTree(t.rootPane, cwdMap),
+          activePaneIndex: mainIndex >= 0 ? mainIndex : 0,
+          activeIsFloating: floatingIndex >= 0,
+          activeFloatingIndex: floatingIndex >= 0 ? floatingIndex : -1,
+          syncInput: t.syncInput,
+          floatingPanes: t.floatingPanes.map((fp) => ({
+            title: fp.title,
+            x: fp.x, y: fp.y,
+            width: fp.width, height: fp.height,
+            cwd: ''
+          }))
+        }
+      }),
+      activeTabIndex: tabs.findIndex((t) => t.id === activeTabId)
+    }
+    localStorage.setItem('winterm2-session', JSON.stringify(session))
+  } catch { /* ignore */ }
+}
+
 interface SerializedTerminal { type: 'terminal'; title: string; cwd: string }
 interface SerializedSplit { type: 'split'; direction: 'horizontal' | 'vertical'; ratio: number; children: [SerializedNode, SerializedNode] }
 type SerializedNode = SerializedTerminal | SerializedSplit
@@ -378,6 +414,10 @@ export const useTabStore = create<TabState>((set, get) => ({
 
       // If root is the target terminal, remove the whole tab
       if (tab.rootPane.id === paneId && tab.rootPane.type === 'terminal') {
+        // Also destroy floating pane PTYs
+        if (tab.floatingPanes) {
+          tab.floatingPanes.forEach((fp) => destroyTerminalInstance(fp.id))
+        }
         const newTabs = state.tabs.filter((t) => t.id !== tabId)
         let newActiveId = state.activeTabId
         if (state.activeTabId === tabId) {
@@ -597,21 +637,30 @@ export const useTabStore = create<TabState>((set, get) => ({
         }
       }
       const session = {
-        tabs: tabs.map((t) => ({
-          title: t.title,
-          rootPane: serializePaneTree(t.rootPane, cwdMap),
-          activePaneId: t.activePaneId,
-          syncInput: t.syncInput,
-          floatingPanes: t.floatingPanes.map((fp) => ({
-            title: fp.title,
-            x: fp.x, y: fp.y,
-            width: fp.width, height: fp.height,
-            cwd: cwdMap[fp.id] || ''
-          }))
-        })),
+        tabs: tabs.map((t) => {
+          const terminalIds = collectTerminalIds(t.rootPane)
+          const mainIndex = terminalIds.indexOf(t.activePaneId)
+          const floatingIndex = t.floatingPanes.findIndex(fp => fp.id === t.activePaneId)
+          return {
+            title: t.title,
+            rootPane: serializePaneTree(t.rootPane, cwdMap),
+            activePaneIndex: mainIndex >= 0 ? mainIndex : 0,
+            activeIsFloating: floatingIndex >= 0,
+            activeFloatingIndex: floatingIndex >= 0 ? floatingIndex : -1,
+            syncInput: t.syncInput,
+            floatingPanes: t.floatingPanes.map((fp) => ({
+              title: fp.title,
+              x: fp.x, y: fp.y,
+              width: fp.width, height: fp.height,
+              cwd: cwdMap[fp.id] || ''
+            }))
+          }
+        }),
         activeTabIndex: tabs.findIndex((t) => t.id === activeTabId)
       }
-      localStorage.setItem('winterm2-session', JSON.stringify(session))
+      const json = JSON.stringify(session)
+      lastSessionJson = json
+      localStorage.setItem('winterm2-session', json)
     } catch {
       // ignore save errors
     }
@@ -639,11 +688,19 @@ export const useTabStore = create<TabState>((set, get) => ({
           zIndex: 101,
           _cwd: fp.cwd || ''
         }))
+        const terminalIds = collectTerminalIds(rootPane)
+        const activePaneIndex = saved.activePaneIndex ?? 0
+        let restoredActivePaneId: string
+        if (saved.activeIsFloating && saved.activeFloatingIndex >= 0 && saved.activeFloatingIndex < floatingPanes.length) {
+          restoredActivePaneId = floatingPanes[saved.activeFloatingIndex].id
+        } else {
+          restoredActivePaneId = terminalIds[activePaneIndex] ?? firstTerminal?.id ?? ''
+        }
         return {
           id: nanoid(),
           title: saved.title || '终端',
           rootPane,
-          activePaneId: firstTerminal?.id ?? '',
+          activePaneId: restoredActivePaneId,
           fullscreenPaneId: null,
           floatingPanes,
           floatingCounter: 100 + floatingPanes.length,

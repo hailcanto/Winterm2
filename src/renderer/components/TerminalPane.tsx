@@ -25,9 +25,10 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
   const activeTabId = useTabStore((s) => s.activeTabId)
   const setActivePaneId = useTabStore((s) => s.setActivePaneId)
 
+  const themeKey = JSON.stringify(xtermTheme)
   const stableTheme = useMemo(
-    () => xtermTheme as Record<string, string>,
-    [JSON.stringify(xtermTheme)]
+    () => xtermTheme as unknown as Record<string, string>,
+    [themeKey]
   )
 
   const { terminalRef, focus } = useTerminal({
@@ -63,7 +64,7 @@ const TerminalPane: React.FC<TerminalPaneProps> = ({ paneId, isActive, isVisible
   return (
     <div
       className={`terminal-pane ${isActive ? 'active' : ''} ${isFullscreen ? 'fullscreen' : ''}`}
-      ref={terminalRef}
+      ref={terminalRef as React.RefObject<HTMLDivElement>}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
     >

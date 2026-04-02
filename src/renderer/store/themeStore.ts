@@ -47,7 +47,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   applyThemeToCSS: () => {
     const { currentTheme } = get()
     const root = document.documentElement
-    const ui = currentTheme.ui as Record<string, string>
+    const ui = currentTheme.ui as unknown as Record<string, string>
     for (const [key, cssVar] of Object.entries(uiColorToCSSVar)) {
       if (ui[key]) {
         root.style.setProperty(cssVar, ui[key])

@@ -32,6 +32,8 @@ export function setSyncInputCallback(cb: ((sourcePaneId: string, data: string) =
 
 // Restored session cwds for PTY creation
 const restoredCwds = new Map<string, string>()
+// Cached shell types per pane (queried after PTY creation)
+const paneShellTypes = new Map<string, string>()
 
 export function setRestoredCwd(paneId: string, cwd: string) {
   if (cwd) restoredCwds.set(paneId, cwd)
@@ -113,9 +115,22 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
     const restoredCwd = restoredCwds.get(paneId)
     if (restoredCwd) restoredCwds.delete(paneId)
     window.terminalAPI.createPty(paneId, term.cols, term.rows, restoredCwd || startupCwd || undefined, defaultShell || undefined)
+    // Cache shell type for link provider
+    window.terminalAPI.getShellType(paneId).then(t => paneShellTypes.set(paneId, t)).catch(() => {})
 
     // PTY data -> terminal
+    const osc7Re = /\x1b\]7;file:\/\/[^/]*(\/.*?)(?:\x07|\x1b\\)/
     instance.unsubData = window.terminalAPI.onPtyData(paneId, (data) => {
+      // Track cwd via OSC 7 on renderer side as well
+      const m = osc7Re.exec(data)
+      if (m) {
+        try {
+          let cwd = decodeURIComponent(m[1])
+          // Strip leading / from Windows paths like /C:/Users/...
+          if (/^\/[a-zA-Z]:/.test(cwd)) cwd = cwd.slice(1)
+          window.terminalAPI.updateCwd(paneId, cwd)
+        } catch { /* ignore */ }
+      }
       term.write(data)
     })
 
@@ -141,51 +156,64 @@ function attachToContainer(paneId: string, instance: TerminalInstance, container
     }
     window.addEventListener('winterm2:copy', instance.copyHandler)
 
-    // File path link provider
-    const filePathRegex = /(?:[a-zA-Z]:\\|\.{0,2}\/)[^\s:*?"<>|]+(?::\d+)?/
-    const urlRegex = /https?:\/\/[^\s]+/
+    // Link provider: URLs and file paths (3 categories)
+    const urlRegex = /https?:\/\/[^\s]+/g
+    // Windows absolute: C:\...
+    const winAbsRegex = /[a-zA-Z]:\\[^\s:*?"<>|]+(?::\d+)?/g
+    // Relative: ./ ../ .\ ..\ (must have at least 1 dot)
+    const relativeRegex = /\.{1,2}[/\\][^\s:*?"<>|]+(?::\d+)?/g
+    // Unix absolute: /home/... /c/... (must contain at least one / separator after initial /letter)
+    const unixAbsRegex = /\/[a-zA-Z][^\s:*?"<>|]*\/[^\s:*?"<>|]+(?::\d+)?/g
+
+    type Link = { range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: () => void }
 
     term.registerLinkProvider({
-      provideLinks(bufferLineNumber: number, callback: (links: Array<{ range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: () => void }> | undefined) => void) {
+      provideLinks(bufferLineNumber: number, callback: (links: Link[] | undefined) => void) {
         const line = term.buffer.active.getLine(bufferLineNumber - 1)
         if (!line) { callback(undefined); return }
         const text = line.translateToString()
-        const links: Array<{ range: { start: { x: number; y: number }; end: { x: number; y: number } }; text: string; activate: () => void }> = []
+        const links: Link[] = []
 
-        // Match file paths
-        let match: RegExpExecArray | null
-        const fpRegex = new RegExp(filePathRegex.source, 'g')
-        while ((match = fpRegex.exec(text)) !== null) {
-          const startX = match.index + 1
-          const endX = match.index + match[0].length
+        // 1. Match URLs first, record their ranges
+        const urlRanges: [number, number][] = []
+        urlRegex.lastIndex = 0
+        let urlMatch: RegExpExecArray | null
+        while ((urlMatch = urlRegex.exec(text)) !== null) {
+          const matchedText = urlMatch[0]
+          const s = urlMatch.index
+          const e = s + matchedText.length
+          urlRanges.push([s, e])
           links.push({
-            range: {
-              start: { x: startX, y: bufferLineNumber },
-              end: { x: endX, y: bufferLineNumber }
-            },
-            text: match[0],
-            activate: () => {
-              const pathPart = match![0].split(':')[0] + (match![0].includes(':\\') ? '\\' + match![0].split('\\').slice(1).join('\\').split(':')[0] : '')
-              window.shellAPI.openPath(pathPart.replace(/:\d+$/, ''))
-            }
+            range: { start: { x: s + 1, y: bufferLineNumber }, end: { x: e, y: bufferLineNumber } },
+            text: matchedText,
+            activate: () => { window.shellAPI.openExternal(matchedText) }
           })
         }
 
-        // Match URLs
-        const urlRegexG = new RegExp(urlRegex.source, 'g')
-        while ((match = urlRegexG.exec(text)) !== null) {
-          const startX = match.index + 1
-          const endX = match.index + match[0].length
+        const overlapsUrl = (s: number, e: number) => urlRanges.some(([us, ue]) => s < ue && e > us)
+        const addFileLink = (matchedText: string, s: number, e: number) => {
+          if (overlapsUrl(s, e)) return
           links.push({
-            range: {
-              start: { x: startX, y: bufferLineNumber },
-              end: { x: endX, y: bufferLineNumber }
-            },
-            text: match[0],
-            activate: () => {
-              window.shellAPI.openExternal(match![0])
-            }
+            range: { start: { x: s + 1, y: bufferLineNumber }, end: { x: e, y: bufferLineNumber } },
+            text: matchedText,
+            activate: () => { window.shellAPI.openTerminalPath(paneId, matchedText.replace(/:\d+$/, '')) }
           })
+        }
+
+        // 2. Windows absolute paths (all shells)
+        winAbsRegex.lastIndex = 0
+        let m: RegExpExecArray | null
+        while ((m = winAbsRegex.exec(text)) !== null) addFileLink(m[0], m.index, m.index + m[0].length)
+
+        // 3. Relative paths (all shells)
+        relativeRegex.lastIndex = 0
+        while ((m = relativeRegex.exec(text)) !== null) addFileLink(m[0], m.index, m.index + m[0].length)
+
+        // 4. Unix absolute paths (only for WSL / Git Bash)
+        const shellType = paneShellTypes.get(paneId) || 'windows'
+        if (shellType === 'wsl' || shellType === 'gitbash') {
+          unixAbsRegex.lastIndex = 0
+          while ((m = unixAbsRegex.exec(text)) !== null) addFileLink(m[0], m.index, m.index + m[0].length)
         }
 
         callback(links.length > 0 ? links : undefined)
@@ -239,6 +267,7 @@ function destroyInstance(paneId: string) {
   window.terminalAPI.destroyPty(paneId)
   instance.terminal.dispose()
   terminalInstances.delete(paneId)
+  paneShellTypes.delete(paneId)
 }
 
 // --- Hook ---
@@ -275,7 +304,7 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
     isActive
   } = options
 
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const instanceRef = useRef<TerminalInstance | null>(null)
 
   const fit = useCallback(() => {

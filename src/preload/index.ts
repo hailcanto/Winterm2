@@ -41,6 +41,14 @@ contextBridge.exposeInMainWorld('terminalAPI', {
 
   getCwd(id: string): Promise<string> {
     return ipcRenderer.invoke('pty:getCwd', { id })
+  },
+
+  getShellType(id: string): Promise<string> {
+    return ipcRenderer.invoke('pty:getShellType', { id })
+  },
+
+  updateCwd(id: string, cwd: string): void {
+    ipcRenderer.send('pty:updateCwd', { id, cwd })
   }
 })
 
@@ -83,5 +91,8 @@ contextBridge.exposeInMainWorld('shellAPI', {
   },
   openExternal(url: string): Promise<void> {
     return ipcRenderer.invoke('shell:openExternal', url)
+  },
+  openTerminalPath(paneId: string, rawPath: string): Promise<void> {
+    return ipcRenderer.invoke('shell:openTerminalPath', { paneId, rawPath })
   }
 })
