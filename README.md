@@ -320,3 +320,9 @@ WinTerm2 启动终端时会按以下优先级自动选择 Shell：
 
 MIT License
 
+---
+
+## 友情链接
+
+- [LINUX DO](https://linux.do/) — 开源技术社区
+
